@@ -1,0 +1,5 @@
+
+export amqmsgr_zoo1=zoo1
+export amqmsgr_zoo2=zoo2
+export amqmsgr_zoo3=zoo3
+

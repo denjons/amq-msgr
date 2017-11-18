@@ -1,0 +1,132 @@
+version: '3.2'
+services:
+  activemq:
+    image: rmohr/activemq:5.14.5
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.10
+    ports:
+      - "1883:1883"
+      - "8161:8161"
+      - "61616:61616"
+  request-rest:
+    build:
+      context: ./request-rest-service
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.20
+    ports:
+      - 8181:8080
+    volumes:
+      - ~/.m2:/root/.m2
+  request-agg:
+    build:
+      context: ./request-agg-service
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.21
+    volumes:
+      - ~/.m2:/root/.m2
+    depends_on:
+      - mysql1
+  mysql1:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ytafalco
+    networks:
+      - jms_test
+  mysqlclient:
+    build: 
+      context: ./request-agg-service/mysql/
+    networks:
+      - jms_test
+    depends_on:
+      - mysql1
+  mongodb1:
+    image: mongo
+    ports:
+      - "27017"
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.30
+    command: ["mongod", "--replSet", "demo", "-dbpath", "/data/db", "--port", "27017"]
+    volumes:
+      - ./mongo_1:/data/db
+  mongodb2:
+    image: mongo
+    ports:
+      - "27017"
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.31
+    command: ["mongod", "--replSet", "demo", "-dbpath", "/data/db", "--port", "27017"]
+    volumes:
+      - ./mongo_2:/data/db
+  arbiter:
+    image: mongo
+    ports:
+      - "27017"
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.32
+    command: ["mongod", "--replSet", "demo", "-dbpath", "/data/db", "--port", "27017"]
+    volumes:
+      - ./mongo_3:/data/db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1000k"
+        max-file: "2"
+  zoo1:
+    image: zookeeper
+    restart: always
+    hostname: zoo1
+    networks:
+      - jms_test
+    ports:
+      - 2181:2181
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+  zoo2:
+    image: zookeeper
+    restart: always
+    hostname: zoo2
+    networks:
+      - jms_test
+    ports:
+      - 2182:2181
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+  zoo3:
+    image: zookeeper
+    restart: always
+    hostname: zoo3
+    networks:
+      - jms_test
+    ports:
+      - 2183:2181
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+  mongo_cli:
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.200
+    build:
+      context: ./mongodb/cli/
+    command: ["sh", "mongocli.sh"]
+  test_cli:
+    build:
+      context: ./tests
+    networks:
+      jms_test:
+        ipv4_address: 10.0.3.201
+networks:
+  jms_test:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.0.3.0/24 
